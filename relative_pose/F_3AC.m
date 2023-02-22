@@ -1,0 +1,53 @@
+function [ C_F ] = F_3AC( p1, p2, A1, A2, F, C )
+%F_3AC - propagation of the uncertainty using 
+% D. Barath - Efficient Recovery of Essential Matrix from Two Affine Correspondences, Eq. 8,9
+%  and 
+% Harley - Multiple View Geometry in Computer Vision (Second Edition), Eq.11.3 page 279
+%
+% Input: 
+%   p1  ...  2x3pts [u11 u12 u13; v11 v12 v13] (first image)
+%   p2  ...  2x3pts [u21 u22 u23; v21 v22 v23] (second image)
+%   A1 ...  2x2 affinity matrix  [a1_1, a2_1, a3_1, a4_1] (row-major order)
+%   A2 ...  2x2 affinity matrix  [a1_2, a2_2, a3_2, a4_2] (row-major order)
+%   F   ... the fundamental matrix
+%   C    ... 24x24 covariance matrix of input points [u11 v11 u12 v12 u13 v13 u21 v21 u22 v22 u23 v23 
+%                                         a1_1 a2_1 a3_1 a4_1 a1_2 a2_2 a3_2 a4_2 a1_3 a2_3 a3_3 a4_3]
+% Output:
+%   C_F ... 9x9 covariance matrix of homography parameters [f1 f4 f7 f2 f5 f8 f3 f6 f9] (column-major order)
+
+    % normalize F
+    F = normalizeMatrix(F);
+    
+    % compute the derivatives
+    A = deriv_measurements( p1(1),p1(2),p1(3),p1(4),p1(5),p1(6),...
+                            p2(1),p2(2),p2(3),p2(4),p2(5),p2(6),...
+                            A1(1),A1(2),A1(3),A1(4),...
+                            A2(1),A2(2),A2(3),A2(4),...
+                            F(1),F(2),F(3),F(4),F(5),F(6),F(7),F(8));
+    B = deriv_params(   p1(1),p1(2),p1(3),p1(4),p1(5),p1(6),...
+                        p2(1),p2(2),p2(3),p2(4),p2(5),p2(6),...
+                        A1(1),A1(2),A1(3),A1(4),...
+                        A2(1),A2(2),A2(3),A2(4),...
+                        F(1),F(2),F(3),F(4),F(5),F(6),F(7),F(8),F(9));
+                   
+    % the propagation
+    iBA = B \ A;
+    C_F = iBA * C * iBA';
+
+end
+
+function A = deriv_measurements(u11,v11,u12,v12,u13,v13, ...
+                                u21,v21,u22,v22,u23,v23, ...
+                                a1_1,a2_1,a3_1,a4_1, ...
+                                a1_2,a2_2,a3_2,a4_2, ...
+                                f1,f4,f7,f2,f5,f8,f3,f6)
+    A = [f1 * u21 + f4 * v21 + f7 f2 * u21 + f5 * v21 + f8 0 0 0 0 f1 * u11 + f2 * v11 + f3 f4 * u11 + f5 * v11 + f6 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0; 0 0 f1 * u22 + f4 * v22 + f7 f2 * u22 + f5 * v22 + f8 0 0 0 0 f1 * u12 + f2 * v12 + f3 f4 * u12 + f5 * v12 + f6 0 0 0 0 0 0 0 0 0 0 0 0 0 0; 0 0 0 0 f1 * u23 + f4 * v23 + f7 f2 * u23 + f5 * v23 + f8 0 0 0 0 f1 * u13 + f2 * v13 + f3 f4 * u13 + f5 * v13 + f6 0 0 0 0 0 0 0 0 0 0 0 0; a1_1 * f1 + a3_1 * f4 a1_1 * f2 + a3_1 * f5 0 0 0 0 f1 f4 0 0 0 0 f1 * u11 + f2 * v11 + f3 0 f4 * u11 + f5 * v11 + f6 0 0 0 0 0 0 0 0 0; a2_1 * f1 + a4_1 * f4 a2_1 * f2 + a4_1 * f5 0 0 0 0 f2 f5 0 0 0 0 0 f1 * u11 + f2 * v11 + f3 0 f4 * u11 + f5 * v11 + f6 0 0 0 0 0 0 0 0; 0 0 a1_2 * f1 + a3_2 * f4 a1_2 * f2 + a3_2 * f5 0 0 0 0 f1 f4 0 0 0 0 0 0 f1 * u12 + f2 * v12 + f3 0 f4 * u12 + f5 * v12 + f6 0 0 0 0 0; 0 0 a2_2 * f1 + a4_2 * f4 a2_2 * f2 + a4_2 * f5 0 0 0 0 f2 f5 0 0 0 0 0 0 0 f1 * u12 + f2 * v12 + f3 0 f4 * u12 + f5 * v12 + f6 0 0 0 0; 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0; 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0];
+end
+
+function B = deriv_params(  u11,v11,u12,v12,u13,v13, ...
+                            u21,v21,u22,v22,u23,v23, ...
+                            a1_1,a2_1,a3_1,a4_1, ...
+                            a1_2,a2_2,a3_2,a4_2, ...
+                            f1,f4,f7,f2,f5,f8,f3,f6,f9)
+    B = [u11 * u21 u11 * v21 u11 u21 * v11 v11 * v21 v11 u21 v21 1; u12 * u22 u12 * v22 u12 u22 * v12 v12 * v22 v12 u22 v22 1; u13 * u23 u13 * v23 u13 u23 * v13 v13 * v23 v13 u23 v23 1; a1_1 * u11 + u21 a3_1 * u11 + v21 1 a1_1 * v11 a3_1 * v11 0 a1_1 a3_1 0; a2_1 * u11 a4_1 * u11 0 a2_1 * v11 + u21 a4_1 * v11 + v21 1 a2_1 a4_1 0; a1_2 * u12 + u22 a3_2 * u12 + v22 1 a1_2 * v12 a3_2 * v12 0 a1_2 a3_2 0; a2_2 * u12 a4_2 * u12 0 a2_2 * v12 + u22 a4_2 * v12 + v22 1 a2_2 a4_2 0; f5 * f9 - f6 * f8 -f2 * f9 + f3 * f8 f2 * f6 - f3 * f5 -f4 * f9 + f6 * f7 f1 * f9 - f3 * f7 -f1 * f6 + f3 * f4 f4 * f8 - f5 * f7 -f1 * f8 + f2 * f7 f1 * f5 - f2 * f4; (f1 ^ 2 + f2 ^ 2 + f3 ^ 2 + f4 ^ 2 + f5 ^ 2 + f6 ^ 2 + f7 ^ 2 + f8 ^ 2 + f9 ^ 2) ^ (-0.1e1 / 0.2e1) * f1 (f1 ^ 2 + f2 ^ 2 + f3 ^ 2 + f4 ^ 2 + f5 ^ 2 + f6 ^ 2 + f7 ^ 2 + f8 ^ 2 + f9 ^ 2) ^ (-0.1e1 / 0.2e1) * f4 (f1 ^ 2 + f2 ^ 2 + f3 ^ 2 + f4 ^ 2 + f5 ^ 2 + f6 ^ 2 + f7 ^ 2 + f8 ^ 2 + f9 ^ 2) ^ (-0.1e1 / 0.2e1) * f7 (f1 ^ 2 + f2 ^ 2 + f3 ^ 2 + f4 ^ 2 + f5 ^ 2 + f6 ^ 2 + f7 ^ 2 + f8 ^ 2 + f9 ^ 2) ^ (-0.1e1 / 0.2e1) * f2 (f1 ^ 2 + f2 ^ 2 + f3 ^ 2 + f4 ^ 2 + f5 ^ 2 + f6 ^ 2 + f7 ^ 2 + f8 ^ 2 + f9 ^ 2) ^ (-0.1e1 / 0.2e1) * f5 (f1 ^ 2 + f2 ^ 2 + f3 ^ 2 + f4 ^ 2 + f5 ^ 2 + f6 ^ 2 + f7 ^ 2 + f8 ^ 2 + f9 ^ 2) ^ (-0.1e1 / 0.2e1) * f8 (f1 ^ 2 + f2 ^ 2 + f3 ^ 2 + f4 ^ 2 + f5 ^ 2 + f6 ^ 2 + f7 ^ 2 + f8 ^ 2 + f9 ^ 2) ^ (-0.1e1 / 0.2e1) * f3 (f1 ^ 2 + f2 ^ 2 + f3 ^ 2 + f4 ^ 2 + f5 ^ 2 + f6 ^ 2 + f7 ^ 2 + f8 ^ 2 + f9 ^ 2) ^ (-0.1e1 / 0.2e1) * f6 (f1 ^ 2 + f2 ^ 2 + f3 ^ 2 + f4 ^ 2 + f5 ^ 2 + f6 ^ 2 + f7 ^ 2 + f8 ^ 2 + f9 ^ 2) ^ (-0.1e1 / 0.2e1) * f9];
+end
